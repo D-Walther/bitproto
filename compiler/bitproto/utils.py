@@ -364,6 +364,9 @@ def pascal_case(word: str) -> str:
 # Uppercase preceded by a lowercase marks the start of a new camelCase word
 _snake_case_regex_camel_match = re.compile(r"(?<=[a-z])([A-Z]+[a-z0-9]*)")
 
+# Split numbers preceded or followed by letters (abc123 -> abc_123)
+_snake_case_regex_embedded_numbers_match = re.compile(r"(?<=\w)([0-9]+)|([0-9]+)(?=\w)")
+
 
 def snake_case(word: str) -> str:
     """Converts given word to snake case.
@@ -379,4 +382,19 @@ def snake_case(word: str) -> str:
             for w in snake_case_split
         )
     )
-    return "_".join(camel_case_split).lower()
+
+    embedded_numbers_split: List[str]
+    if "_" in word or word.isupper():
+        # Reasoning: If the user already uses snake_case, they likely already have numbers and letters split in a sensible manner.
+        # E.g. splitting MyEnum_v2 into my_enum_v_2 is less intuitive than my_enum_v2
+        # To avoid inconsistencies around "single-word + number" combinations in places where UPPER_SNAKE_CASE is used, uppercase words are exempt as well.
+        # E.g. if "MY_CONST1" results in "my_const1", "CONST1" should not result in "const_1".
+        embedded_numbers_split = camel_case_split
+    else:
+        embedded_numbers_split = list(
+            itertools.chain.from_iterable(
+                filter(None, _snake_case_regex_embedded_numbers_match.split(w))
+                for w in camel_case_split
+            )
+        )
+    return "_".join(embedded_numbers_split).lower()
